@@ -1,1 +1,6 @@
 __pycache__/
+
+# testing files
+test.py
+test/
+

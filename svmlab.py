@@ -6,16 +6,18 @@ from sklearn.metrics import confusion_matrix
 from sklearn import svm
 
 ''' 
-run support vector classifier algorithm, return results and useful info
+fit classifier and collect useful data and metadata
 
 '''
-def svc(x_data, y_data,
-          kernel='rbf', C=1.0, gamma='auto', dfs='ovr'):
+def research(clf, x_data, y_data):
+
+    # determine type of svm classifier
+    clf_type = clf._impl
+
     # split data for training and testing
     x_train, x_test, y_train, y_test = train_test_split(x_data, y_data, random_state=0)
     
     # initialize svm and fit
-    clf = svm.SVC(kernel=kernel, C=C, gamma=gamma, decision_function_shape=dfs)
     clf.fit(x_train, y_train)
     
     # score the fit
@@ -35,63 +37,100 @@ def svc(x_data, y_data,
     cnf_mat = confusion_matrix(y_test, y_pred)
     # normalize
     cnf_mat = cnf_mat.astype('float') / cnf_mat.sum(axis=1)[:, np.newaxis]
-    
-    # gamma is not relevant in linear kernel
-    if kernel == 'linear':
-        gamma = None 
+
+    # extract support vectors
+    x_support = clf.support_vectors_
     
     # compile results and necessary info
     results = {
-        'bounds': (x_min, x_max, y_min, y_max),
+        'metadata': clf.__dict__,
+        'training set': (x_train, y_train),
+        'testing set': (x_test, y_test),
+        'support': (x_support),
         'confusion': cnf_mat, 
         'contour': (XX, YY, Z),
-        'kernel': kernel,
-        'parameters': (C, gamma),
         'score': score,
-        'testing set': (x_test, y_test),
-        'training set': (x_train, y_train)
+        'bounds': (x_min, x_max, y_min, y_max)
     }
     
     return results
 
+'''
+support vector machines student class
 
 '''
-support vector classifier student class
-
-'''
-class SVCStudent:
+class Student:
     def __init__(self, x_data, y_data):
         self.samples, self.labels = x_data, y_data
         self.study = []
         self.fig = plt.figure(figsize=(8,6))
         self.ax = self.fig.add_subplot(111)
 
-    def study_kernel(self, kernel, range_of_experiment=range(-10, 20),
-                     dynamic_C=False, dynamic_gamma=False, dfs='ovr'):
+    def assign_new_data(x_data, y_data):
+        self.samples, self.labels = x_data, y_data
+
+    def study_svc(self, kernel='rbf', dfs='ovr',
+                  C_list=[1.], gamma_list=[1.]):
+        # empty study list to put new results
         self.study = []
-        C, gamma = 1.0, 1.0
-        for i in range_of_experiment:
-            if dynamic_C:
-                C = 10. ** (0.2 * float(i))
-            if dynamic_gamma:
-                gamma = 10. ** (0.2 * float(i))
 
+        # linear kernel does not use gamma, create arbitrary gamma_list to zip with C_list
+        if kernel == 'linear': 
+            gamma_list = [0.0 for _ in range(len(C_list))]
+
+        # C and gamma lists should have same length
+        assert len(C_list) == len(gamma_list)
+
+        # iterate through C, gamma tuples and develop results    
+        for C, gamma in zip(C_list, gamma_list):
             if kernel == 'linear':
-                results = svc(self.samples, self.labels, kernel=kernel, C=C)
+                clf = svm.SVC(kernel=kernel, C=C, decision_function_shape=dfs)
             else:
-                results = svc(self.samples, self.labels, kernel=kernel, C=C, gamma=gamma)
+                clf = svm.SVC(kernel=kernel, C=C, gamma=gamma, decision_function_shape=dfs)
 
+            results = research(clf, self.samples, self.labels)
             self.study.append(results)
 
         return self.study
 
-    def animate(self, results):
+    def study_nusvc(self, kernel='rbf', dfs='ovr',
+                    nu_list=[1.], gamma_list=[1.]):
+        # empty study list to put new results
+        self.study = []
+
+        # linear kernel does not use gamma, create arbitrary gamma_list to zip with nu_list
+        if kernel == 'linear': 
+            gamma_list = [0.0 for _ in range(len(nu_list))]
+
+        # nu and gamma lists should have same length
+        assert len(nu_list) == len(gamma_list)
+
+        # iterate through nu, gamma tuples and develop results    
+        for nu, gamma in zip(nu_list, gamma_list):
+            if nu > 0.9:
+                print('svmlab: study cut short due to infeasible nu value (greater than 0.9)')
+                break
+            if kernel == 'linear':
+                clf = svm.NuSVC(kernel=kernel, nu=nu, decision_function_shape=dfs)
+            else:
+                clf = svm.NuSVC(kernel=kernel, nu=nu, gamma=gamma, decision_function_shape=dfs)
+
+            results = research(clf, self.samples, self.labels)
+            self.study.append(results)
+
+        return self.study
+
+    def visualize(self, results):
         # clear plot
         self.ax.clear()
 
-        # get latest plot data
-        kernel = results['kernel']
-        C, gamma = results['parameters']
+        # classifier metadata 
+        metadata = results['metadata']
+        clf_type = metadata['_impl']
+        kernel = metadata['kernel']
+        C, nu, gamma = metadata['C'], metadata['nu'], metadata['gamma']
+
+        # plot data
         x_train, y_train = results['training set']
         x_test, y_test = results['testing set']
         XX, YY, Z = results['contour']
@@ -106,7 +145,14 @@ class SVCStudent:
         self.ax.contourf(XX, YY, Z, cmap=plt.cm.coolwarm)
 
         # title
-        title = kernel + (' kernel: C=%8.3f' % C)
+        title = kernel + ' kernel:' 
+        if clf_type == 'c_svc':
+            title += (' C=%8.3f' % C)
+        elif clf_type == 'nu_svc':
+            title += (' nu=%8.3f' % nu)
+        else:
+            print('svmlab: Unrecognized classifier type')
+        
         if kernel != 'linear': # only linear kernel does not include gamma
             title += (', gamma=%8.3f ' % gamma)
         self.ax.set_title(title)
@@ -123,17 +169,15 @@ class SVCStudent:
 
         return
       
-    def publish(self):
+    def report(self):
         for results in self.study:
             yield results
 
-    def visualize_study(self, filename, interval=0.5):
+    def publish(self, filename, interval=0.5):
         interval = interval #in seconds
-        anim = FuncAnimation(self.fig, self.animate, self.publish,
+        anim = FuncAnimation(self.fig, self.visualize, self.report,
                              interval=interval*1e+3, blit=False)
         anim.save(filename)
 
         return
-		
 			
-
