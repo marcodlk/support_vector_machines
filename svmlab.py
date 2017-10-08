@@ -17,7 +17,7 @@ def research(clf, x_data, y_data):
     # split data for training and testing
     x_train, x_test, y_train, y_test = train_test_split(x_data, y_data, random_state=0)
     
-    # initialize svm and fit
+    # fit classifier according to training data
     clf.fit(x_train, y_train)
     
     # score the fit
