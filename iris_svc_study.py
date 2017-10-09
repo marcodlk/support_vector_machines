@@ -42,52 +42,52 @@ dynamic_gamma_list = np.logspace(-2, 3, 30)
 
 # ** note it seems that actually nu values greater than 0.9 are infeasible
 
-# initialize svm student with iris dataset
-print('-- initializing support vector machines student ')
-student = svmlab.Student(x_data, y_data)
+# initialize svm lab with iris dataset
+print('-- initializing support vector machines lab ')
+lab = svmlab.SVMLab(x_data, y_data)
 
 # svc, linear kernel, study effect of C parameter (softmargin)
 print('-- studying effect of C parameter on SVC, linear kernel ')
-student.study_svc(kernel='linear', C_list=dynamic_C_list)
-student.publish(svc_linear_C_fname, interval=INTERVAL)
+lab.study_svc(kernel='linear', C_list=dynamic_C_list)
+lab.visualize_results(svc_linear_C_fname, interval=INTERVAL)
 print('   ... saved to file %s ' % svc_linear_C_fname)
 
 # svc, poly kernel, study effect of C parameter (softmargin)
 print('-- studying effect of C parameter on SVC, poly kernel ')
-student.study_svc(kernel='poly', 
-                  C_list=dynamic_C_list,
-                  gamma_list=static_gamma_list)
-student.publish(svc_poly_C_fname, interval=INTERVAL)
+lab.study_svc(kernel='poly', 
+              C_list=dynamic_C_list,
+              gamma_list=static_gamma_list)
+lab.visualize_results(svc_poly_C_fname, interval=INTERVAL)
 print('   ... saved to file %s ' % svc_poly_C_fname)
 
 # svc, rbf kernel, study effect of C parameter (softmargin)
 print('-- studying effect of C parameter on SVC, rbf kernel ')
-student.study_svc(kernel='rbf', 
-                  C_list=dynamic_C_list,
-                  gamma_list=static_gamma_list)
-student.publish(svc_rbf_C_fname, interval=INTERVAL)
+lab.study_svc(kernel='rbf', 
+              C_list=dynamic_C_list,
+              gamma_list=static_gamma_list)
+lab.visualize_results(svc_rbf_C_fname, interval=INTERVAL)
 print('   ... saved to file %s ' % svc_rbf_C_fname)
 
 # svc, rbf kernel, study effect of gamma parameter (kernel coefficient)
 print('-- studying effect of gamma parameter on SVC, rbf kernel ')
-student.study_svc(kernel='rbf', 
-                  C_list=static_C_list,
-                  gamma_list=dynamic_gamma_list)
-student.publish(svc_rbf_gamma_fname, interval=INTERVAL)
+lab.study_svc(kernel='rbf', 
+              C_list=static_C_list,
+              gamma_list=dynamic_gamma_list)
+lab.visualize_results(svc_rbf_gamma_fname, interval=INTERVAL)
 print('   ... saved to file %s ' % svc_rbf_gamma_fname)
 
 # svc, rbf kernel, study effect of both C and gamma parameters (jointly incrementing)
 print('-- studying effect of both C and gamma parameters on SVC, rbf kernel ')
-student.study_svc(kernel='rbf', 
-                  C_list=dynamic_C_list,
-                  gamma_list=dynamic_gamma_list)
-student.publish(svc_rbf_dual_fname, interval=INTERVAL)
+lab.study_svc(kernel='rbf', 
+              C_list=dynamic_C_list,
+              gamma_list=dynamic_gamma_list)
+lab.visualize_results(svc_rbf_dual_fname, interval=INTERVAL)
 print('   ... saved to file %s ' % svc_rbf_dual_fname)
 
 # nusvc, linear kernel, study effect of nu parameter
 print('-- studying effect of nu parameter on NuSVC, linear kernel ')
-student.study_nusvc(kernel='linear', nu_list=dynamic_nu_list)
-student.publish(nusvc_linear_nu_fname, interval=INTERVAL)
+lab.study_nusvc(kernel='linear', nu_list=dynamic_nu_list)
+lab.visualize_results(nusvc_linear_nu_fname, interval=INTERVAL)
 print('   ... saved to file %s ' % nusvc_linear_nu_fname)
 
 print('-- done ')
