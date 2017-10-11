@@ -4,6 +4,7 @@ from matplotlib import colors
 from matplotlib.animation import FuncAnimation
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from sklearn.model_selection import train_test_split, StratifiedShuffleSplit, GridSearchCV
+from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import confusion_matrix
 from sklearn import svm
 
@@ -115,8 +116,11 @@ class SVMLab:
         self.fig = plt.figure(figsize=(8,6))
         self.ax = self.fig.add_subplot(111)
 
-    def assign_new_data(x_data, y_data):
+    def assign_new_data(self, x_data, y_data):
         self.x_data, self.y_data = x_data, y_data
+
+    def standard_scale_features(self):
+        self.x_data = StandardScaler().fit_transform(self.x_data)
 
     def svm_animation(self, 
                       svm_=dict(impl='svc', kernel='rbf', dfs='ovr'),
@@ -174,7 +178,7 @@ class SVMLab:
 
         return
 
-    def optimal_param_grid_search(self, #svm_obj, C_range, gamma_range, heatmap=None):
+    def optimal_param_grid_search(self, 
                                   svm_=dict(impl='svc', kernel='rbf', dfs='ovr'),
                                   range_=dict(C=[1.], nu=[1.], gamma=[1.]),
                                   heatmap_=dict(
