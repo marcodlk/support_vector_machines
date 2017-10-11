@@ -5,3 +5,5 @@ test.py
 test/
 
 .DS_Store
+
+*.swp
