@@ -12,30 +12,39 @@ KERNELS_WITH_GAMMA = ['rbf', 'poly', 'sigmoid']
 
 ''' Fit classifier and collect useful data and metadata
 '''
-def run_classifier(clf, x_data, y_data):
-    # split data for training and testing
-    x_train, x_test, y_train, y_test = train_test_split(x_data, y_data, random_state=0)
-    
+def run_classifier(clf, x_train, y_train, x_test=None, y_test=None):
     # fit classifier according to training data
     clf.fit(x_train, y_train)
     
-    # score the fit
-    score = clf.score(x_test, y_test)
-    
     # make predictions over a mesh grid to visualize classification regions
-    x_min, x_max = x_data[:,0].min() - 0.5, x_data[:,0].max() + 0.5
-    y_min, y_max = x_data[:,1].min() - 0.5, x_data[:,1].max() + 0.5
+    x_min, x_max = x_train[:,0].min() - 0.5, x_train[:,0].max() + 0.5
+    y_min, y_max = x_train[:,1].min() - 0.5, x_train[:,1].max() + 0.5
     step = .02
     XX, YY = np.meshgrid(np.arange(x_min, x_max, step),
                          np.arange(y_min, y_max, step))
+
+    # if classification is binary, use decision function
+#    n_classes = y_train.max() - y_train.min() + 1
+#    if n_classes == 2:
+#        Z = clf.decision_function(np.c_[XX.ravel(), YY.ravel()])
+#    else:
+#        Z = clf.predict(np.c_[XX.ravel(), YY.ravel()])
     Z = clf.predict(np.c_[XX.ravel(), YY.ravel()])
     Z = Z.reshape(XX.shape)
     
-    # confusion matrix
-    y_pred = clf.predict(x_test)
-    cnf_mat = confusion_matrix(y_test, y_pred)
-    # normalize
-    cnf_mat = cnf_mat.astype('float') / cnf_mat.sum(axis=1)[:, np.newaxis]
+    if x_test and y_test:
+        # score the fit
+        score = clf.score(x_test, y_test)
+
+        # confusion matrix
+        y_pred = clf.predict(x_test)
+        cnf_mat = confusion_matrix(y_test, y_pred)
+        # normalize
+        cnf_mat = cnf_mat.astype('float') / cnf_mat.sum(axis=1)[:, np.newaxis]
+
+    else:
+        score = 'none'
+        cnf_mat = 'none'
 
     # extract support vectors
     x_support = clf.support_vectors_
@@ -52,7 +61,38 @@ def run_classifier(clf, x_data, y_data):
         'bounds': (x_min, x_max, y_min, y_max)
     }
     
-    return results
+    return results, clf
+
+def test_svm(x_train, y_train, x_test, y_test, 
+             svm_=dict(impl='svc', kernel='rbf', C=1.0, nu=0.5, gamma=1.0, dfs='ovr')):
+    kernel, dfs = svm_['kernel'], svm_['dfs']
+    if svm_['impl'] in ['svc', 'SVC', 'c_svc']:
+        C, gamma = svm_['C'], svm_['gamma']
+        if kernel not in KERNELS_WITH_GAMMA:
+            clf = svm.SVC(kernel=kernel, C=C, decision_function_shape=dfs)
+        else:
+            clf = svm.SVC(kernel=kernel, C=C, gamma=gamma, decision_function_shape=dfs)
+    elif svm_['impl'] in ['nusvc', 'NuSVC', 'nu_svc']:
+        nu, gamma = svm_['nu'], svm_['gamma']
+        if kernel not in KERNELS_WITH_GAMMA:
+            clf = svm.NuSVC(kernel=kernel, nu=nu, decision_function_shape=dfs)
+        else:
+            clf = svm.NuSVC(kernel=kernel, nu=nu, gamma=gamma, decision_function_shape=dfs)
+    else:
+        print('svmlab: Unrecognized svm type')
+        assert False
+
+    # fit classifier on training data
+    clf.fit(x_train, y_train)
+    
+    # gather useful classifier info after fit
+    n_supports = len(clf.support_vectors_)
+
+    # score classifier on testing data
+    score = clf.score(x_test, y_test)
+
+    return score, n_supports
+    
 
 def develop_svc_results(x_data, y_data, kernel, C, gamma, dfs='ovr'):
     if kernel not in KERNELS_WITH_GAMMA:
@@ -60,7 +100,9 @@ def develop_svc_results(x_data, y_data, kernel, C, gamma, dfs='ovr'):
     else:
         clf = svm.SVC(kernel=kernel, C=C, gamma=gamma, decision_function_shape=dfs)
 
-    return run_classifier(clf, x_data, y_data)
+    results, _ = run_classifier(clf, x_data, y_data)
+
+    return results
 
 def develop_multiple_svc_results(x_data, y_data, kernel, C_range, gamma_range, dfs='ovr'):
     # initialize results list
@@ -85,7 +127,9 @@ def develop_nusvc_results(x_data, y_data, kernel, nu, gamma, dfs='ovr'):
     else:
         clf = svm.NuSVC(kernel=kernel, nu=nu, gamma=gamma, decision_function_shape=dfs)
 
-    return run_classifier(clf, x_data, y_data)
+    results, _ = run_classifier(clf, x_data, y_data)
+
+    return results
 
 def develop_multiple_nusvc_results(x_data, y_data, kernel, nu_range, gamma_range, dfs='ovr'):
     # initialize resultslist
@@ -122,6 +166,11 @@ class SVMLab:
     def standard_scale_features(self):
         self.x_data = StandardScaler().fit_transform(self.x_data)
 
+    def svm_test(self, x_test, y_test, 
+                 svm_=dict(impl='svc', kernel='rbf', C=1.0, nu=0.5, gamma=1.0, dfs='ovr')):
+        return test_svm(self.x_data, self.y_data, x_test, y_test, svm_)
+        
+
     def svm_animation(self, 
                       svm_=dict(impl='svc', kernel='rbf', dfs='ovr'),
                       range_=dict(C=[1.], nu=[1.], gamma=[1.]),
@@ -153,7 +202,7 @@ class SVMLab:
 
     def svm_plot(self, 
                  svm_=dict(impl='svc', kernel='rbf', C=1.0, gamma='auto', dfs='ovr'),
-                 plot_=dict(filename='svm_plot.mp4')):
+                 plot_=dict(filename='svm_plot.png')):
         
         if svm_['impl'] in ['svc', 'SVC', 'c_svc']:
             self.draw_plot(
@@ -183,7 +232,7 @@ class SVMLab:
                                   range_=dict(C=[1.], nu=[1.], gamma=[1.]),
                                   heatmap_=dict(
                                     filename='svm_gridsearch.png',
-                                    norm=colors.PowerNorm(gamma=10.)
+                                    norm=None
                                   )):
         # build the defined svm
         svm_obj = None
@@ -209,7 +258,9 @@ class SVMLab:
         grid_search_ = dict(
             svm_=svm_,
             range_=range_,
-            cv_results_=grid.cv_results_
+            cv_results_=grid.cv_results_,
+            best_score=grid.best_score_,
+            best_params=grid.best_params_
         )
 
         # plot heatmap if defined
@@ -223,7 +274,7 @@ class SVMLab:
 
         return grid.best_params_, grid.best_score_
 
-    def draw_heatmap(self, grid_search, norm=colors.PowerNorm(gamma=10.)):
+    def draw_heatmap(self, grid_search, norm=None):
         # clear previous heatmap
         self.ax.clear()
 
@@ -235,24 +286,41 @@ class SVMLab:
         kernel = grid_search['svm_']['kernel']
 
         # parameter ranges
-        C_range = grid_search['range_']['C']
+        if impl in ['svc', 'SVC', 'c_svc']:
+            svm_param_name = 'C'
+            svm_param_range = grid_search['range_']['C']
+        elif impl in ['nusvc', 'NuSVC', 'nu_svc']:
+            svm_param_name = 'nu'
+            svm_param_range = grid_search['range_']['nu']
+        else:
+            print('svmlab: Unrecognized svm type')
+            assert False
         gamma_range = grid_search['range_']['gamma']
 
         # cross-validation results
         cv_results_ = grid_search['cv_results_']
 
-        scores = cv_results_['mean_test_score'].reshape(len(C_range), len(gamma_range))
+        scores = cv_results_['mean_test_score'].reshape(len(svm_param_range), len(gamma_range))
         vmin = scores.min()
         midpoint = (scores.max() + scores.min()) * 0.5
 
+        # best params and score
+        best_score = grid_search['best_score']
+        best_params = grid_search['best_params']
+
+        # highlight best params with mask that filters out all except best score
+        mask_scores = np.ma.masked_where(scores != best_score, scores)   
+        masked_scores = np.ma.masked_array(scores, mask_scores.mask)
+
         # heatmap
         heatmap = self.ax.imshow(scores, interpolation='nearest', cmap=plt.cm.hot, norm=norm)
+        #self.ax.imshow(masked_scores, interpolation='nearest', cmap=plt.cm.bwr, alpha=0.5)
         self.ax.set_xlabel('gamma')
-        self.ax.set_ylabel('C')
+        self.ax.set_ylabel(svm_param_name)
         self.ax.set_xticks(np.arange(len(gamma_range)))
         self.ax.set_xticklabels(gamma_range)
-        self.ax.set_yticks(np.arange(len(C_range)))
-        self.ax.set_yticklabels(C_range)
+        self.ax.set_yticks(np.arange(len(svm_param_range)))
+        self.ax.set_yticklabels(svm_param_range)
         #self.ax.tick_params(axis='x', labelrotation=45)
         for tick in self.ax.get_xticklabels():
             tick.set_rotation(45)
@@ -277,10 +345,10 @@ class SVMLab:
 
         # get plot data
         x_train, y_train = result['training set']
-        x_test, y_test = result['testing set']
+        #x_test, y_test = result['testing set']
         x_support = result['support']
         XX, YY, Z = result['contour']
-        score = result['score']
+        #score = result['score']
         x_min, x_max, y_min, y_max = result['bounds']
 
         # update plot
@@ -288,8 +356,8 @@ class SVMLab:
         train_scat = self.ax.scatter(x_train[:,0], x_train[:,1], c=y_train,
                         zorder=10, cmap=plt.cm.coolwarm, edgecolor='k', s=20)
         # testing set
-        test_scat = self.ax.scatter(x_test[:,0], x_test[:,1], c=y_test, marker='v',
-                        zorder=5, cmap=plt.cm.coolwarm, edgecolor='k', s=20)
+#        test_scat = self.ax.scatter(x_test[:,0], x_test[:,1], c=y_test, marker='v',
+#                        zorder=5, cmap=plt.cm.coolwarm, edgecolor='k', s=20)
         # supports
         supp_scat = self.ax.scatter(x_support[:,0], x_support[:,1],
                         facecolors='none', zorder=10, edgecolor='k', s=80)
@@ -298,15 +366,15 @@ class SVMLab:
         # title
         title = kernel + ' kernel:' 
         if impl == 'c_svc':
-            title += (' C=%8.3f' % C)
+            title += (' C=%f' % C)
         elif impl == 'nu_svc':
-            title += (' nu=%8.3f' % nu)
+            title += (' nu=%f' % nu)
         else:
             print('svmlab: Unrecognized svm type')
             assert(False)
         
         if kernel in KERNELS_WITH_GAMMA: 
-            title += (', gamma=%8.3f ' % gamma)
+            title += (', gamma=%f ' % gamma)
         self.ax.set_title(title)
 
         # legend
@@ -315,16 +383,16 @@ class SVMLab:
 #            bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
 
         # annotations
-        font = {
-            'family': 'serif',
-            'color':  'darkred',
-            'weight': 'normal',
-            'size': 16,
-        }
-        self.ax.text(x_max-1.1, y_max-0.28, r'score: %4.2f' % score, fontsize=16,
-            bbox={'facecolor':'white', 'alpha':0.8, 'pad':10})
-        self.ax.text(x_max-1.065, y_max-0.68, r'supports: %03d' % len(x_support), fontsize=12,
-            bbox={'facecolor':'white', 'alpha':0.8, 'pad':13.3})
+#        font = {
+#            'family': 'serif',
+#            'color':  'darkred',
+#            'weight': 'normal',
+#            'size': 16,
+#        }
+#        self.ax.text(x_max-1.1, y_max-0.28, r'score: %4.2f' % score, fontsize=16,
+#            bbox={'facecolor':'white', 'alpha':0.8, 'pad':10})
+#        self.ax.text(x_max-1.065, y_max-0.68, r'supports: %03d' % len(x_support), fontsize=12,
+#            bbox={'facecolor':'white', 'alpha':0.8, 'pad':13.3})
 
         return
 

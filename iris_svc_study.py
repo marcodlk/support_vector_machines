@@ -148,8 +148,10 @@ print('   ... saved to file %s ' % svc_poly_grid_search)
 '''
 
 # rbf
-C_range = np.logspace(-3, 3, 7)
-gamma_range = np.logspace(-3, 3, 7)
+#C_range = np.logspace(-3, 3, 7)
+#gamma_range = np.logspace(-3, 3, 7)
+C_range = np.logspace(-2, 10, 13)
+gamma_range = np.logspace(-9, 3, 13)
 print('-- svc, rbf kernel, grid search for optimal parameters ')
 best_params, best_score = lab.optimal_param_grid_search(
     svm_=dict(impl='svc', kernel='rbf', dfs='ovr'),
